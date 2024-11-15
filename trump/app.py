@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, Response, redirect, url_for, flash, session, send_from_directory, abort, send_file
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
@@ -113,6 +114,9 @@ def download_page():
 
 @app.route('/profile/<int:user_id>', methods=['GET'])
 def profile(user_id):
+    if 'user_id' not in session or session['user_id'] != user_id:
+        return redirect(url_for('login'))
+
     query_user = text(f"SELECT * FROM users WHERE id = {user_id}")
     user = db.session.execute(query_user).fetchone()
 
@@ -136,22 +140,36 @@ def forum():
 # Add login route
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'failed_attempts' not in session:
+        session['failed_attempts'] = 0
+    
+    if 'lockout_time' in session and datetime.now() < session['lockout_time'].replace(tzinfo=None):
+        error = "Too many failed attempts. Try again in 1 minute."
+        return render_template('login.html', error=error)
+
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
 
-        query = text(f"SELECT * FROM users WHERE username = '{username}' AND password = '{password}'")
-        user = db.session.execute(query).fetchone()
+        query = text("SELECT * FROM users WHERE username = :username AND password = :password")
+        user = db.session.execute(query, {'username': username, 'password': password}).fetchone()
 
         if user:
             session['user_id'] = user.id
+            session.pop('failed_attempts', None)
+            session.pop('lockout_time', None)
             flash('Login successful!', 'success')
             return redirect(url_for('profile', user_id=user.id))
         else:
-            error = 'Invalid Credentials. Please try again.'
+            session['failed_attempts'] += 1
+            if session['failed_attempts'] >= 3:
+                session['lockout_time'] = datetime.now() + timedelta(minutes=1)
+                session['failed_attempts'] = 0  
+            error = 'Invalid credentials. Please try again.'
             return render_template('login.html', error=error)
 
     return render_template('login.html')
+
 
 
 
