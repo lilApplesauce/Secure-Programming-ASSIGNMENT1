@@ -4,6 +4,10 @@ from datetime import datetime, timedelta
 from flask import Flask, render_template, request, Response, redirect, url_for, flash, session, send_from_directory, abort, send_file
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
+from markupsafe import escape
+from werkzeug.utils import secure_filename
+
+
 
 
 app = Flask(__name__)
@@ -90,6 +94,7 @@ def download():
     base_directory = os.path.join(os.path.dirname(__file__), 'docs')
 
     # Construct the file path to attempt to read the file
+    file_name = secure_filename(request.args.get('file', ''))
     file_path = os.path.abspath(os.path.join(base_directory, file_name))
 
     # Ensure that the file path is within the base directory
@@ -131,7 +136,8 @@ from flask import request
 @app.route('/search', methods=['GET'])
 def search():
     query = request.args.get('query')
-    return render_template('search.html', query=query)
+    return render_template('search.html', query=escape(query))
+
 
 @app.route('/forum')
 def forum():
@@ -152,7 +158,7 @@ def login():
         password = request.form['password']
 
         query = text("SELECT * FROM users WHERE username = :username AND password = :password")
-        user = db.session.execute(query, {'username': username, 'password': password}).fetchone()
+        user = db.session.execute(query, {'username': escape(username), 'password': escape(password)}).fetchone()
 
         if user:
             session['user_id'] = user.id
@@ -186,7 +192,4 @@ from flask import session
 
 
 if __name__ == '__main__':
-    initialize_database()  # Initialize the database on application startup if it doesn't exist
-    with app.app_context():
-        db.create_all()  # Create tables based on models if they don't already exist
-    app.run(debug=True)
+   app.run(debug=False, port=80)
