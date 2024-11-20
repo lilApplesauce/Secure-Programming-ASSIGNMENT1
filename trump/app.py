@@ -6,12 +6,14 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
 from markupsafe import escape
 from werkzeug.utils import secure_filename
+#from dotenv import load_dotenv
 
-
-
+#load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = 'trump123'  # Set a secure secret key
+
+#app.secret_key = os.getenv('SECRET_KEY')  
 
 # Configure the SQLite database
 db_path = os.path.join(os.path.dirname(__file__), 'trump.db')
@@ -55,7 +57,10 @@ def sitemap():
     
 @app.route('/admin_panel')
 def admin_panel():
-    return render_template('admin_panel.html')
+    if 'user_id'in session and session['user_id'] == 1:
+        return render_template('admin_panel.html')
+    else:
+         return render_template('index.html')
 
 # Route to handle redirects based on the destination query parameter
 @app.route('/redirect', methods=['GET'])
